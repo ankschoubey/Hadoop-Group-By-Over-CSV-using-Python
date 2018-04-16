@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import sys
 import csv
+
 # input comes from STDIN (standard input)
 for line in sys.stdin:
     # remove leading and trailing whitespace
@@ -24,4 +25,4 @@ for line in sys.stdin:
     except:
         continue
 
-    print(field_data[key_column], '\t',field_data[aggregate_column])
+    print field_data[key_column], '\t',field_data[aggregate_column]

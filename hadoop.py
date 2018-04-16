@@ -1,126 +1,4 @@
-import os
-
-# os.popen: returns terminal output after execution
-
-def put_test_file(local_src, input_dir, input_file, hadoop_path='hadoop'):
-    """
-    :param local_src: name of the local source file with complete path
-    :param input_dir: name of the input directory in hadoop
-    :param input_file: name of the input file in hadoop
-    """
-
-    put_input_file_command = """{hadoop_path} fs -put {local_src} /{input_dir}/{input_file}""".format(local_src=local_src, input_dir=input_dir,input_file=input_file,hadoop_path=hadoop_path)
-
-    data = os.popen(put_input_file_command).read()
-
-    print('input\n',put_input_file_command,'\n',data)
-    data = data.split('\n')
-    result = {}
-    for key, value in [i.split('\t') for i in data if len(i)>0]:
-        result[key] = value
-    print('output_result')
-    print(result)
-
-    return """/{input_dir}/{input_file}""".format(input_dir=input_dir, input_file=input_file)
-
-def output_fetch(output_dir, output_file='part*', hadoop_path='hadoop'):
-    """
-    :param output: name of the output directory in hadoop
-    :return: returns the data as dict
-    """
-
-    data_fetch_command = """{hadoop_path} fs -cat {output_dir}/{output_file}""".format(output_dir=output_dir,output_file=output_file,hadoop_path=hadoop_path)
-
-    data = os.popen(data_fetch_command).read()
-
-    print('output\n',data_fetch_command,'\n',data)
-    data = data.split('\n')
-    result = {}
-    for key, value in [i.split('\t') for i in data if len(i)>0]:
-        result[key] = value
-    return result
-
-def directory_exists(dir_name, hadoop_path='hadoop'):
-    """
-    :param dir_name: name of directory on hdfs
-    :return: True if directory exists
-    """
-    command = "{hadoop_path} fs -ls | grep '{name}'".format(name = dir_name,hadoop_path=hadoop_path)
-    output = os.popen(command).read()
-    print('searching directory',command,len(output))
-
-    return True if len(output) > 0 else False
-
-if(os.path.exists('.env')):
-    with open('.env', 'r') as f:
-        count = int(f.read())
-else:
-    with open('.env', 'w') as f:
-        f.write('0')
-    count = 0
-
-def find_unique_output_dir(desired_name='output',hadoop_path='hadoop'):
-    global count
-    name = desired_name
-
-    print('finding unique ')
-
-    while True:
-        name = desired_name + str(count)
-        if not directory_exists(name, hadoop_path=hadoop_path):
-            with open('.env', 'w') as f:
-                f.write(str(count + 1))
-            return name
-        count +=1
-
-def execute(data, mapper, reducer, hadoop_path = 'bin/hadoop', streaming_path = 'contrib/streaming/hadoop-*streaming*.jar' ,mapper_arguments=None, reducer_arguments=None, output = 'output'):
-    """
-    :param data: location of data on hdfs
-    :param mapper:  mapper file
-    :param reducer: reducer file
-    :param mapper_arguments: any arguments to pass to mapper
-    :param reducer_arguments: any arguments to pass to reducer
-    :param output:  optional desired output file
-    :return:
-    """
-
-    if(os.name == 'nt'):
-        splitter = '\\'
-    else:
-        splitter = '/'
-
-    input_path = put_test_file(data, 'test', data.split(splitter)[-1], hadoop_path)
-
-    if directory_exists(output,hadoop_path=hadoop_path):
-        print('directory exists', output)
-
-        output = find_unique_output_dir(output,hadoop_path=hadoop_path)
-
-    if mapper_arguments:
-        mapper_arguments = [str(i) for i in mapper_arguments]
-        mapper_arguments = "'"+mapper +' '+' '.join(mapper_arguments) + "'"
-    else:
-        mapper_arguments = mapper
-
-    if reducer_arguments:
-        reducer_arguments = [str(i) for i in reducer_arguments]
-
-        reducer_arguments = "'" + mapper +' '+ ' '.join(reducer_arguments) + "'"
-    else:
-        reducer_arguments = reducer
-
-    command = """{hadoop_path} jar {streaming_path} \
-         -mapper {mapper_arguments}    -file {mapper}  \
-         -reducer {reducer_arguments}    -file {reducer}  \
-        -input {input}  -output {output}
-    """.format(hadoop_path=hadoop_path,mapper=mapper, mapper_arguments = mapper_arguments, reducer_arguments = reducer_arguments, reducer=reducer, input=input_path, output=output, streaming_path=streaming_path)
-
-    print(command)
-
-    os.popen(command)
-
-    return output_fetch(output, hadoop_path=hadoop_path)
-
+import subprocess
 
 """
 bin/hadoop jar /usr/local/hadoop-2.7.0/share/hadoop/tools/lib/hadoop-streaming-2.7.0.jar \
@@ -128,3 +6,150 @@ bin/hadoop jar /usr/local/hadoop-2.7.0/share/hadoop/tools/lib/hadoop-streaming-2
  -reducer value_summation_reducer.py -file value_summation_reducer.py \
  -input test.csv -output output_dir1 \
 """
+
+class Hadoop:
+
+    def __init__(self,hadoop_path = '', streaming_path = 'contrib/streaming/hadoop-*streaming*.jar'):
+        self.hadoop_path = hadoop_path
+        self.streaming_path = streaming_path
+        self.output_no = {}
+
+    def shell(self, command):
+        """
+        :param command: pass in a command without hadoop path. hadoop path will be added automatically
+        :return:
+        """
+        command = '{hadoop_path} {command}'.format(hadoop_path=self.hadoop_path, command = command)
+        print('executing', command)
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+        (output, err) = process.communicate()
+
+        process.wait()
+
+        if output is None:
+            return ''
+
+        return output.decode("utf-8")
+
+    def file_exists(self, name):
+        """
+        :param name: name for any type of file which could be directory file or regular file
+        :return: True if file exists
+        """
+        command = "fs -ls | grep '{name}'".format(name=name)
+
+        output = self.shell(command)
+
+        print('Searching for',name, command, len(output))
+        print(output)
+
+        return True if len(output) > 0 else False
+
+    def find_unique_output_directory(self, directory_prefix):
+
+        self.output_no.setdefault(directory_prefix, 0)
+        count = self.output_no[directory_prefix]
+
+        name = directory_prefix + str(count)
+
+        if not self.file_exists(name):
+            self.output_no[directory_prefix] = count + 1
+            return name
+
+        print('Finding unique directory', directory_prefix)
+
+        command = "fs -ls | grep '{name}' | awk '{{print $8}}'".format(name=directory_prefix)
+        output = self.shell(command)
+
+        name_len = len(directory_prefix)
+
+        numbers = [-1]
+        for i in output.split('\n'):
+            try:
+                numbers.append(int(i[name_len:]))
+            except:
+                # some alpha_numeric_value
+                pass
+
+        count = max(numbers) + 1
+        self.output_no[directory_prefix] = count
+
+        return  directory_prefix + str(count)
+
+    def remove_file(self, hadoop_dest):
+        command = 'fs -rm {hadoop_dest}'.format(hadoop_dest=hadoop_dest)
+        print('removing file', hadoop_dest)
+        self.shell(command)
+        #exit()
+
+    def put_file(self, local_src, hadoop_dest, override=False):
+        """
+        :param local_src: name of the local source file with complete path
+        :param hadoop_dest: location at which to store file includes file name also
+        :param override: should we override if file already exists
+        :return:
+        """
+
+        found_file = self.file_exists(hadoop_dest)
+        if not override and found_file:
+            return True
+
+        if override and found_file:
+            self.remove_file(hadoop_dest)
+
+        put_file_command = """fs -put {local_src} {hadoop_dest}""".format(
+            local_src=local_src, hadoop_dest=hadoop_dest)
+
+        print('Copying',local_src,'to hadoop: ', hadoop_dest)
+        data = self.shell(put_file_command)
+
+        return True
+
+    def _format_map_reduce_args(self, name,args):
+        if args:
+            args = [str(i) for i in args]
+            return "'{name} {args}'".format(name = name, args = ' '.join(args))
+
+        return name
+
+    def map_reduce(self,data_src, mapper, reducer, mapper_arguments=None, reducer_arguments=None, output_dir = 'output'):
+
+        if not self.file_exists(data_src):
+            raise Exception('No such file exists: '+ data_src)
+
+        output_dir = self.find_unique_output_directory(output_dir)
+
+        mapper_arguments = self._format_map_reduce_args(mapper, mapper_arguments)
+        reducer_arguments = self._format_map_reduce_args(reducer, reducer_arguments)
+
+        command = """jar {streaming_path} \
+             -mapper {mapper_arguments}    -file {mapper}  \
+             -reducer {reducer_arguments}    -file {reducer}  \
+            -input {input}  -output {output}
+        """.format(mapper=mapper, mapper_arguments=mapper_arguments,
+                   reducer_arguments=reducer_arguments, reducer=reducer, input=data_src, output=output_dir,
+                   streaming_path=self.streaming_path)
+
+        print(command)
+
+        self.shell(command)
+
+        return self.output_fetch(output_dir)
+
+    def _output_reformat(self, line):
+        line = line.strip('(')
+        line = line.strip(')')
+        line = line.strip("\'")
+        key, value = line.split("\', \'")[0], line.split("\', \'")[-1]
+        return key, value
+
+    def output_fetch(self,output_dir, output_file='part*'):
+        command = """fs -cat {output_dir}/{output_file}""".format(output_dir=output_dir, output_file=output_file)
+
+        raw_output = self.shell(command)
+        raw_output = raw_output.split('\n')
+
+        result = {}
+        for key, value in [i.split('\t') for i in raw_output if len(i) > 0]:
+            result[key] = value
+        return result
