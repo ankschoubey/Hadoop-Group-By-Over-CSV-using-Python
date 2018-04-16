@@ -11,8 +11,12 @@ for line in sys.stdin:
     line = line.strip()
 
     # parse the input we got from mapper.py
-    word, count = line.split('\t')
-
+    # try:
+    line = line.strip('(')
+    line = line.strip(')')
+    line = line.strip("\'")
+    word, count = line.split("\', \'")[0], line.split("\', \'")[-1]
+    
     # convert count (currently a string) to int
     try:
         count = float(count)

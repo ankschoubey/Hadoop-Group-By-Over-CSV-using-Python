@@ -1,4 +1,6 @@
+import sys
 import hadoop
+import config
 
 """
 data = file in hadoop
@@ -8,10 +10,14 @@ groupby = 5th column
 aggretate = 6th column
 """
 
-result = hadoop.execute(data='test.csv',
-                mapper='group_by_mapper.py', mapper_arguments=[5,6],
-                reducer='value_summation_reducer.py',
-                hadoop_path='bin/hadoop', streaming_path='/usr/local/hadoop-2.7.0/share/hadoop/tools/lib/hadoop-streaming-2.7.0.jar',
-                )
+command = sys.argv[1]
 
-print('output is',result)
+if(command == 'group_by'):
+
+    result = hadoop.execute(data=sys.argv[4],
+                    mapper='group_by_mapper.py', mapper_arguments=[int(sys.argv[2]),int(sys.argv[3])],
+                    reducer='value_summation_reducer.py',
+                    hadoop_path=config.HADOOP_PATH, streaming_path=config.HADOOP_STREAMING_PATH,
+                    )
+
+    print('output is',result)

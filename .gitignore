@@ -102,3 +102,6 @@ ENV/
 *.iml
 *.xml
 *.csv
+
+# vscode
+.vscode

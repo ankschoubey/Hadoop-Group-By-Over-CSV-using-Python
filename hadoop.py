@@ -2,6 +2,27 @@ import os
 
 # os.popen: returns terminal output after execution
 
+def put_test_file(local_src, input_dir, input_file, hadoop_path='hadoop'):
+    """
+    :param local_src: name of the local source file with complete path
+    :param input_dir: name of the input directory in hadoop
+    :param input_file: name of the input file in hadoop
+    """
+
+    put_input_file_command = """{hadoop_path} fs -put {local_src} /{input_dir}/{input_file}""".format(local_src=local_src, input_dir=input_dir,input_file=input_file,hadoop_path=hadoop_path)
+
+    data = os.popen(put_input_file_command).read()
+
+    print('input\n',put_input_file_command,'\n',data)
+    data = data.split('\n')
+    result = {}
+    for key, value in [i.split('\t') for i in data if len(i)>0]:
+        result[key] = value
+    print('output_result')
+    print(result)
+
+    return """/{input_dir}/{input_file}""".format(input_dir=input_dir, input_file=input_file)
+
 def output_fetch(output_dir, output_file='part*', hadoop_path='hadoop'):
     """
     :param output: name of the output directory in hadoop
@@ -30,7 +51,13 @@ def directory_exists(dir_name, hadoop_path='hadoop'):
 
     return True if len(output) > 0 else False
 
-count = 0
+if(os.path.exists('.env')):
+    with open('.env', 'r') as f:
+        count = int(f.read())
+else:
+    with open('.env', 'w') as f:
+        f.write('0')
+    count = 0
 
 def find_unique_output_dir(desired_name='output',hadoop_path='hadoop'):
     global count
@@ -41,6 +68,8 @@ def find_unique_output_dir(desired_name='output',hadoop_path='hadoop'):
     while True:
         name = desired_name + str(count)
         if not directory_exists(name, hadoop_path=hadoop_path):
+            with open('.env', 'w') as f:
+                f.write(str(count + 1))
             return name
         count +=1
 
@@ -54,6 +83,13 @@ def execute(data, mapper, reducer, hadoop_path = 'bin/hadoop', streaming_path = 
     :param output:  optional desired output file
     :return:
     """
+
+    if(os.name == 'nt'):
+        splitter = '\\'
+    else:
+        splitter = '/'
+
+    input_path = put_test_file(data, 'test', data.split(splitter)[-1], hadoop_path)
 
     if directory_exists(output,hadoop_path=hadoop_path):
         print('directory exists', output)
@@ -77,7 +113,7 @@ def execute(data, mapper, reducer, hadoop_path = 'bin/hadoop', streaming_path = 
          -mapper {mapper_arguments}    -file {mapper}  \
          -reducer {reducer_arguments}    -file {reducer}  \
         -input {input}  -output {output}
-    """.format(hadoop_path=hadoop_path,mapper=mapper, mapper_arguments = mapper_arguments, reducer_arguments = reducer_arguments, reducer=reducer, input=data, output=output, streaming_path=streaming_path)
+    """.format(hadoop_path=hadoop_path,mapper=mapper, mapper_arguments = mapper_arguments, reducer_arguments = reducer_arguments, reducer=reducer, input=input_path, output=output, streaming_path=streaming_path)
 
     print(command)
 
