@@ -3,30 +3,44 @@ from hadoop import Hadoop
 import config
 import os
 
-#engine = Hadoop('bin/hadoop','/usr/local/hadoop-2.7.0/share/hadoop/tools/lib/hadoop-streaming-2.7.0.jar')
+cache={}
 
-engine = Hadoop(config.HADOOP_PATH, config.HADOOP_STREAMING_PATH)
+def main():
+    #engine = Hadoop('bin/hadoop','/usr/local/hadoop-2.7.0/share/hadoop/tools/lib/hadoop-streaming-2.7.0.jar')
 
-# Put files into Hadoop
-file_path = 'test.csv'
-file_name = os.path.basename(file_path)
+    engine = Hadoop(config.HADOOP_PATH, config.HADOOP_STREAMING_PATH)
 
-engine.put_file(local_src=file_path, hadoop_dest=file_name, override=False)
+    # Put files into Hadoop
+    file_path = 'h1b_kaggle_1.csv'
+    file_name = os.path.basename(file_path)
 
-# Map-Reduce Tasks: default output_dir is 'output'
+    engine.put_file(local_src=file_path, hadoop_dest=file_name, override=False)
 
-result = engine.map_reduce(data_src='test.csv', mapper='group_by_mapper.py', mapper_arguments=[3,6],
-                reducer='value_summation_reducer.py')
+    # Map-Reduce Tasks: default output_dir is 'output'
 
-print('output is',result)
+    result = engine.map_reduce(data_src=file_path, mapper='group_by_mapper.py', mapper_arguments=[3,6],
+                    reducer='value_summation_reducer.py')
 
-"""
-mapper arguments in case of group_by_mapper in bellow example is 
-groupby = 5th column
-aggretate = 6th column
-"""
+    print('output is',result)
 
-result = engine.map_reduce(data_src='test.csv', mapper='group_by_mapper.py', mapper_arguments=[5,6],
-                reducer='value_summation_reducer.py')
+    """
+    mapper arguments in case of group_by_mapper in bellow example is 
+    groupby = 5th column
+    aggretate = 6th column
+    """
 
-print('output is',result)
+    result = engine.map_reduce(data_src=file_path, mapper='group_by_mapper.py', mapper_arguments=[5,6],
+                    reducer='value_summation_reducer.py')
+
+    
+    print('output is',result)
+    
+    cache[(3,6)]= result
+
+    with open('sample_output.txt','w') as file:
+        file.write(str(cache))
+
+    
+if __name__ == "__main__":
+    import profile
+    profile.run("main()")
