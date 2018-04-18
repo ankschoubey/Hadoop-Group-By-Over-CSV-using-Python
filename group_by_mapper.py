@@ -25,4 +25,4 @@ for line in sys.stdin:
     except:
         continue
 
-    print field_data[key_column], '\t',field_data[aggregate_column]
+    print(field_data[key_column], '\t',field_data[aggregate_column])
