@@ -1,4 +1,8 @@
-# Hadoop-Mini-Project
+# Hadoop: Group By Over CSV using Python
+
+## Partners:
+- Suyog Gadhave ([itssuyog96](https://github.com/itssuyog96))
+- Omkar Dubas ([jimmacnulty](https://github.com/jimmacnulty))
 
 Dataset: [H-1B Visa Petitions 2011-2016](https://www.kaggle.com/nsharan/h-1b-visa/data)
 
