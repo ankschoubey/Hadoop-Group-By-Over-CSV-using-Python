@@ -1,5 +1,7 @@
 # Hadoop: Group By Over CSV using Python
 
+Python CLI to perform aggregate queries on CSV on Hadoop with matplotlib graphs
+
 ## Partners:
 - Suyog Gadhave ([itssuyog96](https://github.com/itssuyog96))
 - Omkar Dubas ([jimmacnulty](https://github.com/jimmacnulty))
